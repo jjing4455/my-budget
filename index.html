@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f7f7f8">
+<title>나만의 가계부</title>
+<style>
+:root{--bg:#f7f7f8;--card:#fff;--text:#171717;--muted:#777;--line:#e9e9ed;--accent:#111}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Apple SD Gothic Neo",sans-serif}
+.app{max-width:520px;margin:auto;min-height:100vh;padding:env(safe-area-inset-top) 18px 100px}
+header{padding:28px 2px 18px;display:flex;justify-content:space-between;align-items:center}h1{font-size:26px;margin:0}.month{color:var(--muted);font-size:14px;margin-top:5px}
+.summary{background:#111;color:white;border-radius:24px;padding:22px;margin-bottom:16px}.label{font-size:13px;opacity:.65}.balance{font-size:31px;font-weight:700;margin:6px 0 20px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat{background:#fff1;border:1px solid #ffffff20;border-radius:15px;padding:13px}.stat b{display:block;font-size:17px;margin-top:5px}
+.card{background:var(--card);border-radius:20px;padding:18px;margin-bottom:16px;border:1px solid var(--line)}.card h2{font-size:17px;margin:0 0 14px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.left{display:flex;gap:12px;align-items:center}.icon{width:42px;height:42px;border-radius:14px;background:#f0f0f2;display:grid;place-items:center;font-size:20px}.name{font-weight:600}.date,.cat{font-size:12px;color:var(--muted);margin-top:3px}.amount{font-weight:700}.expense{color:#222}.income{color:#16734a}.transfer{color:#555}.cardcharge{color:#9a5b00}
+.fab{position:fixed;right:20px;bottom:22px;width:60px;height:60px;border:0;border-radius:50%;background:#111;color:#fff;font-size:30px;box-shadow:0 8px 25px #0002}
+.modal{position:fixed;inset:0;background:#0006;display:none;align-items:flex-end;z-index:5}.modal.show{display:flex}.sheet{background:#fff;width:100%;max-width:520px;margin:auto;border-radius:25px 25px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.sheet h2{margin:0 0 18px}.typeTabs,.bigTabs{display:flex;background:#f1f1f3;border-radius:12px;padding:3px;margin-bottom:14px}.typeTabs button,.bigTabs button{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font-weight:600}.typeTabs .active,.bigTabs .active{background:#fff;box-shadow:0 1px 5px #0001}
+input,select{width:100%;padding:14px;border:1px solid var(--line);border-radius:13px;font-size:16px;margin:6px 0 10px;background:#fff}label{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:9px;margin-top:7px}.actions button{flex:1;padding:14px;border-radius:13px;border:0;font-weight:700}.cancel{background:#eee}.save{background:#111;color:#fff}
+.manage{font-size:13px;border:0;background:#f0f0f2;padding:9px 11px;border-radius:10px;margin-bottom:14px}.hint{font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 12px}.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><h1>나만의 가계부</h1><div class="month" id="month"></div></div></header>
+<section class="summary">
+<div class="label">이번 달 실제 잔액 변화</div><div class="balance" id="balance">₩0</div>
+<div class="stats"><div class="stat"><div class="label">이번 달 수입</div><b id="income">₩0</b></div><div class="stat"><div class="label">이번 달 실제 유출</div><b id="outflow">₩0</b></div></div>
+</section>
+<section class="card"><h2>최근 내역</h2><div id="list"></div></section>
+<button class="fab" id="add">＋</button>
+</div>
+
+<div class="modal" id="modal">
+<div class="sheet">
+<h2>거래 기록</h2>
+<div class="bigTabs">
+<button id="normalTab" class="active">일반 거래</button>
+<button id="cardTab">신용카드 사용</button>
+</div>
+
+<div id="normalArea">
+<div class="typeTabs">
+<button id="expenseTab" class="active">지출</button>
+<button id="incomeTab">수입</button>
+</div>
+<label>큰 카테고리</label>
+<select id="mainCategory"></select>
+<label>세부 이름</label>
+<select id="subCategory"></select>
+<button class="manage" id="manageBtn">세부 이름 관리</button>
+<p class="hint">큰 카테고리 안의 이름은 직접 추가할 수 있어요.</p>
+</div>
+
+<div id="cardArea" class="hidden">
+<label>카드 사용 카테고리</label>
+<select id="cardMainCategory"></select>
+<label>세부 이름</label>
+<select id="cardSubCategory"></select>
+<button class="manage" id="manageCardBtn">세부 이름 관리</button>
+<p class="hint">카드 사용은 소비로 기록하지만, 실제 계좌 잔액은 카드대금이 빠지는 달에만 차감돼요.</p>
+</div>
+
+<label>금액</label><input id="amount" type="number" inputmode="decimal" placeholder="0">
+<label>날짜</label><input id="date" type="date">
+<label>메모</label><input id="memo" type="text" placeholder="선택 사항">
+<div class="actions"><button class="cancel" id="cancel">취소</button><button class="save" id="save">저장</button></div>
+</div></div>
+
+<script>
+const KEY="my-budget-v2";
+const CATKEY="my-budget-categories-v2";
+const defaults={
+"저금":["청년미래적금","비상금"],
+"모임통장":["데이트통장","친구모임"],
+"송금":["가족","친구"],
+"신용카드 인출":["카드대금"],
+"생활비":["식비","교통비","쇼핑","생활용품","여가","건강","기타"]
+};
+let cats=JSON.parse(localStorage.getItem(CATKEY)||"null")||defaults;
+let data=JSON.parse(localStorage.getItem(KEY)||"[]");
+let type="expense", mode="normal";
+const $=id=>document.getElementById(id);
+const won=n=>"₩"+Math.round(n).toLocaleString("ko-KR");
+const today=()=>new Date().toISOString().slice(0,10);
+
+function saveData(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function saveCats(){localStorage.setItem(CATKEY,JSON.stringify(cats));populateCats();}
+
+function populateCats(){
+ const main=$("mainCategory"), cardMain=$("cardMainCategory");
+ main.innerHTML=""; cardMain.innerHTML="";
+ Object.keys(cats).forEach(k=>{main.add(new Option(k,k));cardMain.add(new Option(k,k))});
+ populateSubs();
+}
+function populateSubs(){
+ const main=$("mainCategory").value, cardMain=$("cardMainCategory").value;
+ const fill=(el,key)=>{el.innerHTML="";(cats[key]||[]).forEach(v=>el.add(new Option(v,v)))};
+ fill($("subCategory"),main); fill($("cardSubCategory"),cardMain);
+}
+function manageSub(which){
+ const main=which==="card"?$("cardMainCategory").value:$("mainCategory").value;
+ const list=cats[main]||[];
+ const action=prompt(`${main}의 세부 이름을 추가하려면 이름을 입력하세요.\n현재: ${list.join(", ")||"없음"}`);
+ if(action===null)return;
+ const name=action.trim(); if(!name)return;
+ if(!cats[main])cats[main]=[];
+ if(!cats[main].includes(name))cats[main].push(name);
+ saveCats();
+ if(which==="card")$("cardSubCategory").value=name; else $("subCategory").value=name;
+}
+
+function render(){
+ const now=new Date(), ym=now.toISOString().slice(0,7);
+ $("month").textContent=now.toLocaleDateString("ko-KR",{year:"numeric",month:"long"});
+ const cur=data.filter(x=>x.date.startsWith(ym));
+ const inc=cur.filter(x=>x.kind==="income").reduce((a,x)=>a+x.amount,0);
+ // 실제 계좌에서 빠지는 돈: 일반 지출 + 카드대금 인출 + 송금/저금 등 자금이동
+ const out=cur.filter(x=>x.kind==="expense"||x.kind==="cardcharge"||x.kind==="transfer").reduce((a,x)=>a+x.amount,0);
+ $("income").textContent=won(inc); $("outflow").textContent=won(out); $("balance").textContent=won(inc-out);
+
+ const list=$("list"); list.innerHTML="";
+ const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).slice(0,20);
+ if(!sorted.length){list.innerHTML='<div class="empty">아직 기록이 없어요.<br>아래 ＋ 버튼으로 첫 기록을 추가해보세요.</div>';return}
+ const icons={저금:"🐷",모임통장:"👥",송금:"↗️",신용카드:"💳",생활비:"🛒"};
+ sorted.forEach(x=>{
+  const r=document.createElement("div");r.className="row";
+  let sign=x.kind==="income"?"+":"-";
+  let cls=x.kind;
+  let title=x.kind==="carduse"?"카드 사용 · "+x.sub:x.sub;
+  let category=x.kind==="carduse"?"신용카드 사용":x.main;
+  r.innerHTML=`<div class="left"><div class="icon">${icons[x.main]||"📝"}</div><div><div class="name">${title}</div><div class="date">${x.date} · ${category}</div></div></div><div class="amount ${cls}">${sign}${won(x.amount)}</div>`;
+  r.addEventListener("click",()=>{if(confirm("이 기록을 삭제할까요?")){data=data.filter(y=>y.id!==x.id);saveData();}});
+  list.appendChild(r);
+ });
+}
+function openModal(){
+ mode="normal"; type="expense";
+ $("modal").classList.add("show"); $("date").value=today(); $("amount").value=""; $("memo").value="";
+ $("normalTab").classList.add("active");$("cardTab").classList.remove("active");
+ $("normalArea").classList.remove("hidden");$("cardArea").classList.add("hidden");
+ $("expenseTab").classList.add("active");$("incomeTab").classList.remove("active");
+ populateCats();
+}
+$("add").onclick=openModal;
+$("cancel").onclick=()=>$("modal").classList.remove("show");
+$("normalTab").onclick=()=>{mode="normal";$("normalTab").classList.add("active");$("cardTab").classList.remove("active");$("normalArea").classList.remove("hidden");$("cardArea").classList.add("hidden")};
+$("cardTab").onclick=()=>{mode="card";$("cardTab").classList.add("active");$("normalTab").classList.remove("active");$("normalArea").classList.add("hidden");$("cardArea").classList.remove("hidden")};
+$("expenseTab").onclick=()=>{type="expense";$("expenseTab").classList.add("active");$("incomeTab").classList.remove("active")};
+$("incomeTab").onclick=()=>{type="income";$("incomeTab").classList.add("active");$("expenseTab").classList.remove("active")};
+$("mainCategory").onchange=populateSubs;$("cardMainCategory").onchange=populateSubs;
+$("manageBtn").onclick=()=>manageSub("normal");$("manageCardBtn").onclick=()=>manageSub("card");
+
+$("save").onclick=()=>{
+ const amount=Number($("amount").value); if(!amount){alert("금액을 입력해줘!");return}
+ let rec;
+ if(mode==="card"){
+   rec={id:Date.now(),kind:"carduse",amount,main:"신용카드",sub:$("cardSubCategory").value,date:$("date").value||today(),memo:$("memo").value.trim()};
+ }else{
+   const main=$("mainCategory").value, sub=$("subCategory").value;
+   let kind=type;
+   if(type==="expense" && (main==="저금"||main==="모임통장"||main==="송금")) kind="transfer";
+   if(type==="expense" && main==="신용카드 인출") kind="cardcharge";
+   rec={id:Date.now(),kind,amount,main,sub,date:$("date").value||today(),memo:$("memo").value.trim()};
+ }
+ data.push(rec);saveData();$("modal").classList.remove("show");
+};
+populateCats();render();
+</script>
+</body>
+</html>
